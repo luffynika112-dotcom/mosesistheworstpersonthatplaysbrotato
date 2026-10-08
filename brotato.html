@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #status {
+      z-index: 10;
+      font-size: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Loading Brotato assets (0/9)...</div>
+  <canvas id="canvas"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/gh/aahspaghetticode/ignore@20b998679f3a2a598bf5c10a5dd8422b47272a04/Brotato.js"></script>
+  <script>
+    const BASE_URL = "https://cdn.jsdelivr.net/gh/aahspaghetticode/ignore@20b998679f3a2a598bf5c10a5dd8422b47272a04/";
+    const NUM_PARTS = 9;
+    const statusEl = document.getElementById('status');
+
+    async function loadGame() {
+      try {
+        const chunks = [];
+        for (let i = 0; i < NUM_PARTS; i++) {
+          statusEl.textContent = `Downloading game files (${i + 1}/${NUM_PARTS})...`;
+          const response = await fetch(`${BASE_URL}Brotato.pck.part${i}`);
+          if (!response.ok) throw new Error(`Failed to load part ${i}`);
+          const buffer = await response.arrayBuffer();
+          chunks.push(buffer);
+        }
+
+        statusEl.textContent = "Assembling game pack...";
+        const totalSize = chunks.reduce((acc, chunk) => acc + chunk.byteLength, 0);
+        const combined = new Uint8Array(totalSize);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(new Uint8Array(chunk), offset);
+          offset += chunk.byteLength;
+        }
+
+        statusEl.textContent = "Initializing Godot Engine...";
+        const blob = new Blob([combined], { type: "application/octet-stream" });
+        const pckUrl = URL.createObjectURL(blob);
+
+        const engine = new Engine({
+          "args": [],
+          "canvasResizePolicy": 2,
+          "executable": BASE_URL + "Brotato",
+          "mainPack": pckUrl,
+          "focusCanvas": true
+        });
+
+        await engine.startGame({
+          onProgress: function(current, total) {
+            if (total > 0) {
+              statusEl.textContent = `Loading Game: ${Math.round((current / total) * 100)}%`;
+            }
+          }
+        });
+
+        statusEl.style.display = 'none';
+      } catch (err) {
+        statusEl.textContent = "Error loading game: " + err.message;
+        console.error(err);
+      }
+    }
+
+    loadGame();
+  </script>
+</body>
+</html>
